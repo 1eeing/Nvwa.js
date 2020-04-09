@@ -199,19 +199,46 @@ const evaluateMap: EvaluateMap = {
   },
 
   ThisExpression(node: t.ThisExpression, scope) {
-
+    const _this = scope.$find('this');
+    return _this ? _this.$get() : null;
   },
 
   ArrayExpression(node: t.ArrayExpression, scope) {
-
+    return node.elements.map(item => evaluate(item, scope));
   },
 
   ObjectExpression(node: t.ObjectExpression, scope) {
-
+    let res = {};
+    node.properties.forEach((prop) => {
+      let key;
+      let value;
+      if(prop.type === 'ObjectProperty'){
+        key = prop.key.name;
+        value = evaluate(prop.value, scope);
+        res[key] = value;
+      }else if (prop.type === 'ObjectMethod'){
+        const kind = prop.kind;
+        key = prop.key.name;
+        value = evaluate(prop.body, scope);
+        if(kind === 'method') {
+          res[key] = value;
+        }else if(kind === 'get') {
+          Object.defineProperty(res, key, { get: value });
+        }else if(kind === 'set') {
+          Object.defineProperty(res, key, { set: value });
+        }
+      }else if(prop.type === 'SpreadElement'){
+        const arg = evaluate(prop.argument, scope);
+        res = Object.assign(res, arg);
+      }
+    });
+    return res;
   },
 
   FunctionExpression(node: t.FunctionExpression, scope) {
+    return (...args) => {
 
+    }
   },
 
   UnaryExpression(node: t.UnaryExpression, scope) {
@@ -233,18 +260,23 @@ const evaluateMap: EvaluateMap = {
   LogicalExpression(node: t.LogicalExpression, scope) {
 
   },
+
   MemberExpression(node: t.MemberExpression, scope) {
 
   },
+
   ConditionalExpression(node: t.ConditionalExpression, scope) {
 
   },
+
   CallExpression(node: t.CallExpression, scope) {
 
   },
+
   NewExpression(node: t.NewExpression, scope) {
 
   },
+
   SequenceExpression(node: t.SequenceExpression, scope) {
 
   },
