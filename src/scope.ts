@@ -121,6 +121,18 @@ const defaultApis: EmptyObj = {
   Promise
 }
 
+const proxyThis = (target: any) => {
+  return new Proxy(target, {
+    set(target, key, value) {
+      return target[key].$set(value);
+    },
+
+    get(target, key) {
+      return target[key].$get();
+    }
+  })
+}
+
 export const createGlobalScope = (injectorApis: EmptyObj = Object.create(null)) => {
   const scope = new Scope('block');
   const apis = { ...defaultApis, ...injectorApis };
@@ -133,7 +145,7 @@ export const createGlobalScope = (injectorApis: EmptyObj = Object.create(null)) 
   const $module = { 'exports': $exports };
   scope.$const('module', $module);
   scope.$const('exports', $exports);
-  scope.$const('this', scope.variables);
+  scope.$const('this', proxyThis(scope.variables));
 
   return scope;
 }
