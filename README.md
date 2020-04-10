@@ -4,7 +4,7 @@ A javascript interpreter.
 
 ## 安装
 ```bash
-npm install nvwa --save
+npm install nvwajs --save
 ```
 
 

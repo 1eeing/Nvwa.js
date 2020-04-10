@@ -1,5 +1,5 @@
 {
-  "name": "nvwa",
+  "name": "nvwajs",
   "version": "0.0.1",
   "description": "A javascript interpreter.",
   "main": "lib/index.js",
