@@ -1,6 +1,8 @@
 import * as t from '@babel/types';
 import { Scope } from './scope';
 
+export interface EmptyObj { [key: string]: any };
+
 export type Kind = 'const' | 'var' | 'let';
 
 export type ScopeType = 'function' | 'loop' | 'switch' | 'block';

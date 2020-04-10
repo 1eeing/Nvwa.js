@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": [
+      "ESNEXT",
+      "DOM",
+    ],
+    "module": "UMD",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationDir": "lib",
+    "outDir": "lib",
+    "moduleResolution": "Node",
+    "removeComments": true,
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib",
+  ]
+}

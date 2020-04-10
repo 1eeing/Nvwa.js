@@ -1,15 +1,19 @@
 import * as t from '@babel/types';
-import { EvaluateMap } from './types';
+import { EvaluateMap, IVariable } from './types';
 import { Scope } from './scope';
 
-const BREAK = {};
-const CONTINUE = {};
+const BREAK = Object.create(null);
+const CONTINUE = Object.create(null);
 const RETURN: { result: any } = { result: void 0 };
 
 const evaluateMap: EvaluateMap = {
-  Program(program: t.Program, scope) {
-    for (const node of program.body) {
-      evaluate(node, scope);
+  File(node: t.File, scope) {
+    evaluate(node.program, scope);
+  },
+
+  Program(node: t.Program, scope) {
+    for (const n of node.body) {
+      evaluate(n, scope);
     }
   },
 
@@ -38,7 +42,7 @@ const evaluateMap: EvaluateMap = {
   },
 
   BlockStatement(block: t.BlockStatement, scope) {
-    const blockScope = scope.bad ? scope : new Scope('block', false, scope);
+    const blockScope = scope.shared ? scope : new Scope('block', scope);
     for (const node of block.body) {
       const res = evaluate(node, blockScope);
       if (res === BREAK || res === CONTINUE || res === RETURN) {
@@ -56,7 +60,7 @@ const evaluateMap: EvaluateMap = {
   },
 
   ReturnStatement(node: t.ReturnStatement, scope) {
-    RETURN.result === node.argument ? evaluate(node.argument, scope) : void 0;
+    RETURN.result = (node.argument ? evaluate(node.argument, scope) : void 0);
     return RETURN;
   },
 
@@ -69,18 +73,19 @@ const evaluateMap: EvaluateMap = {
   },
 
   IfStatement(node: t.IfStatement, scope) {
-    const ifScope = new Scope('block', true, scope);
     if (evaluate(node.test, scope)) {
-      return evaluate(node.consequent, ifScope);
+      return evaluate(node.consequent, scope);
     }
+
     if (evaluate(node.alternate, scope)) {
+      const ifScope = new Scope('block', scope, true);
       return evaluate(node.alternate, ifScope)
     }
   },
 
   SwitchStatement(node: t.SwitchStatement, scope) {
     const discriminant = evaluate(node.discriminant, scope);
-    const switchScope = new Scope('switch', false, scope);
+    const switchScope = new Scope('switch', scope);
     for (const ca of node.cases){
       if (ca.test === null || evaluate(ca.test, switchScope) === discriminant) {
         const res = evaluate(ca, switchScope);
@@ -111,8 +116,8 @@ const evaluateMap: EvaluateMap = {
       return evaluate(node.block, scope);
     } catch (error) {
       if (node.handler) {
-        const catchScope = new Scope('block', true, scope);
-        catchScope.$let((node.handler.param as t.Identifier).name, error);
+        const catchScope = new Scope('block', scope, true);
+        catchScope.$let((<t.Identifier>node.handler.param).name, error);
         return evaluate(node.handler, catchScope);
       } else {
         throw error;
@@ -130,7 +135,7 @@ const evaluateMap: EvaluateMap = {
 
   WhileStatement(node: t.WhileStatement, scope) {
     while (evaluate(node.test, scope)) {
-      const whileScope = new Scope('loop', true, scope);
+      const whileScope = new Scope('loop', scope, true);
       const res = evaluate(node.body, whileScope);
       if (res === CONTINUE) continue;
       if (res === BREAK) break;
@@ -140,7 +145,7 @@ const evaluateMap: EvaluateMap = {
 
   ForStatement(node: t.ForStatement, scope) {
     for (
-      const forScope = new Scope('loop', false, scope),
+      const forScope = new Scope('loop', scope),
       initVal = evaluate(node.init, forScope);
       evaluate(node.test, forScope);
       evaluate(node.update, forScope)
@@ -158,7 +163,7 @@ const evaluateMap: EvaluateMap = {
     const name = (<t.Identifier>decl.id).name;
 
     for (const value in evaluate(node.right, scope)) {
-      const forScope = new Scope('loop', true, scope);
+      const forScope = new Scope('loop', scope, true);
       scope.$define(kind, name, value);
       const res = evaluate(node.body, forScope);
       if (res === CONTINUE) continue;
@@ -173,7 +178,7 @@ const evaluateMap: EvaluateMap = {
     const name = (<t.Identifier>decl.id).name;
 
     for (const value of evaluate(node.right, scope)) {
-      const forScope = new Scope('loop', true, scope);
+      const forScope = new Scope('loop', scope, true);
       scope.$define(kind, name, value);
       const res = evaluate(node.body, forScope);
       if (res === CONTINUE) continue;
@@ -188,10 +193,10 @@ const evaluateMap: EvaluateMap = {
   },
 
   VariableDeclaration(node: t.VariableDeclaration, scope) {
-    const kind = node.kind;
-    for (const decl of node.declarations) {
+    const { kind, declarations } = node;
+    for (const decl of declarations) {
       const varName = (<t.Identifier>decl.id).name;
-      const value = decl.init;
+      const value = decl.init ? evaluate(decl.init, scope) : void 0;
       if (!scope.$define(kind, varName, value)) {
         throw `[Error] ${name} 重复定义`
       }
@@ -208,7 +213,7 @@ const evaluateMap: EvaluateMap = {
   },
 
   ObjectExpression(node: t.ObjectExpression, scope) {
-    let res = {};
+    let res = Object.create(null);
     node.properties.forEach((prop) => {
       let key;
       let value;
@@ -236,49 +241,221 @@ const evaluateMap: EvaluateMap = {
   },
 
   FunctionExpression(node: t.FunctionExpression, scope) {
-    return (...args) => {
-
+    return function (...args: any) {
+      const funcScope = new Scope('function', scope, true);
+      node.params.forEach((param: t.Identifier, idx) => {
+        const { name: paramName } = param;
+        funcScope.$let(paramName, args[idx]);
+      });
+      funcScope.$const('this', this);
+      funcScope.$const('arguments', arguments);
+      const res = evaluate(node.body, funcScope);
+      if (res === RETURN) {
+        return res.result;
+      }
     }
   },
 
   UnaryExpression(node: t.UnaryExpression, scope) {
-
+    const expressionMap = {
+      '~': () => ~evaluate(node.argument, scope),
+      '+': () => +evaluate(node.argument, scope),
+      '-': () => -evaluate(node.argument, scope),
+      '!': () => !evaluate(node.argument, scope),
+      'void': () => void evaluate(node.argument, scope),
+      'typeof': () => {
+        if (node.argument.type === 'Identifier') {
+          const $var = scope.$find(node.argument.name);
+          const value = $var ? $var.$get() : void 0;
+          return typeof value;
+        }
+        return typeof evaluate(node.argument, scope);
+      },
+      'delete': () => {
+        if (node.argument.type === 'MemberExpression') {
+          const { object, property } = node.argument;
+          const obj = evaluate(object, scope);
+          let prop;
+          if (property.type === 'Identifier') {
+            prop = property.name;
+          } else {
+            prop = evaluate(property, scope);
+          }
+          return delete obj[prop];
+        } else {
+          throw '[Error] 出现错误'
+        }
+      },
+    }
+    return expressionMap[node.operator]();
   },
 
   UpdateExpression(node: t.UpdateExpression, scope) {
+    const { prefix, argument, operator } = node;
+    let $var: IVariable;
+    if (argument.type === 'Identifier') {
+      $var = scope.$find(argument.name);
+      if (!$var) throw `${argument.name} 未定义`;
+    } else if (argument.type === 'MemberExpression') {
+      const obj = evaluate(argument.object, scope);
+      let prop;
+      if (argument.property.type === 'Identifier') {
+        prop = argument.property.name;
+      } else {
+        prop = evaluate(argument.property, scope);
+      }
+      $var = {
+        $set(value: any) {
+          obj[prop] = value;
+          return true;
+        },
+        $get() {
+          return obj[prop];
+        }
+      }
+    } else {
+      throw '[Error] 出现错误'
+    }
 
+    const expressionMap = {
+      '++': v => {
+        $var.$set(v + 1);
+        return prefix ? ++v : v++
+      },
+      '--': v => {
+        $var.$set(v - 1);
+        return prefix ? --v : v--
+      },
+    }
+
+    return expressionMap[operator]($var.$get());
   },
 
   BinaryExpression(node: t.BinaryExpression, scope) {
-
+    const { left, operator, right } = node;
+    const expressionMap = {
+      '==': (a, b) => a == b,
+      '===': (a, b) => a === b,
+      '>': (a, b) => a > b,
+      '<': (a, b) => a < b,
+      '!=': (a, b) => a != b,
+      '!==': (a, b) => a !== b,
+      '>=': (a, b) => a >= b,
+      '<=': (a, b) => a <= b,
+      '<<': (a, b) => a << b,
+      '>>': (a, b) => a >> b,
+      '>>>': (a, b) => a >>> b,
+      '+': (a, b) => a + b,
+      '-': (a, b) => a - b,
+      '*': (a, b) => a * b,
+      '/': (a, b) => a / b,
+      '&': (a, b) => a & b,
+      '%': (a, b) => a % b,
+      '|': (a, b) => a | b,
+      '^': (a, b) => a ^ b,
+      'in': (a, b) => a in b,
+      'instanceof': (a, b) => a instanceof b,
+    }
+    return expressionMap[operator](evaluate(left, scope), evaluate(right, scope));
   },
 
   AssignmentExpression(node: t.AssignmentExpression, scope) {
+    const { left, right, operator } = node;
+    let $var: IVariable;
 
+    if (left.type === 'Identifier') {
+      $var = scope.$find(left.name);
+      if(!$var) throw `${left.name} 未定义`;
+    } else if (left.type === 'MemberExpression') {
+      const obj = evaluate(left.object, scope);
+      let prop;
+      if (left.property.type === 'Identifier') {
+        prop = left.property.name;
+      } else {
+        prop = evaluate(left.property, scope);
+      }
+      $var = {
+        $set(value: any) {
+          obj[prop] = value;
+          return true;
+        },
+        $get() {
+          return obj[prop];
+        }
+      }
+    } else {
+      throw '[Error] 出现错误'
+    }
+
+    const expressionMap = {
+      '=': v => { $var.$set(v); return $var.$get() },
+      '+=': v => { $var.$set($var.$get() + v); return $var.$get() },
+      '-=': v => { $var.$set($var.$get() - v); return $var.$get() },
+      '*=': v => { $var.$set($var.$get() * v); return $var.$get() },
+      '/=': v => { $var.$set($var.$get() / v); return $var.$get() },
+      '%=': v => { $var.$set($var.$get() % v); return $var.$get() },
+      '<<=': v => { $var.$set($var.$get() << v); return $var.$get() },
+      '>>=': v => { $var.$set($var.$get() >> v); return $var.$get() },
+      '>>>=': v => { $var.$set($var.$get() >>> v); return $var.$get() },
+      '|=': v => { $var.$set($var.$get() | v); return $var.$get() },
+      '&=': v => { $var.$set($var.$get() & v); return $var.$get() },
+      '^=': v => { $var.$set($var.$get() ^ v); return $var.$get() },
+    }
+
+    return expressionMap[operator](evaluate(right, scope));
   },
 
   LogicalExpression(node: t.LogicalExpression, scope) {
-
+    const { left, right, operator } = node;
+    const expressionMap = {
+      '&&': () => evaluate(left, scope) && evaluate(right, scope),
+      '||': () => evaluate(left, scope) || evaluate(right, scope),
+    }
+    return expressionMap[operator]();
   },
 
   MemberExpression(node: t.MemberExpression, scope) {
-
+    const { object, property } = node;
+    const obj = evaluate(object, scope);
+    let prop;
+    if (property.type === 'Identifier') {
+      prop = property.name;
+    } else {
+      prop = evaluate(property, scope);
+    }
+    return obj[prop];
   },
 
   ConditionalExpression(node: t.ConditionalExpression, scope) {
-
+    const { test, consequent, alternate } = node;
+    return evaluate(test, scope) ? evaluate(consequent, scope) : evaluate(alternate, scope);
   },
 
   CallExpression(node: t.CallExpression, scope) {
-
+    const func = evaluate(node.callee, scope);
+    const args = node.arguments.map(arg => evaluate(arg, scope));
+    let _this;
+    if (node.callee.type === 'MemberExpression') {
+      _this = evaluate(node.callee.object, scope);
+    } else {
+      const $var = scope.$find('this');
+      _this = $var ? $var.$get() : null;
+    }
+    return func.apply(_this, args);
   },
 
   NewExpression(node: t.NewExpression, scope) {
-
+    const func = evaluate(node.callee, scope);
+    const args = node.arguments.map(arg => evaluate(arg, scope));
+    return new (func.bind(func, ...args));
   },
 
   SequenceExpression(node: t.SequenceExpression, scope) {
-
+    let last;
+    node.expressions.forEach(expr => {
+      last = evaluate(expr, scope);
+    })
+    return last;
   },
 }
 

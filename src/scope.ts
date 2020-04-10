@@ -1,4 +1,4 @@
-import { IScope, IVariable, Kind, ScopeType } from './types';
+import { IScope, IVariable, Kind, ScopeType, EmptyObj } from './types';
 
 export class Variable implements IVariable {
   constructor(
@@ -20,12 +20,12 @@ export class Variable implements IVariable {
 }
 
 export class Scope implements IScope {
-  public readonly variables: {[key: string]: any} = {}
+  public readonly variables: EmptyObj = Object.create(null);
 
   constructor(
     private readonly scopeType: ScopeType,
-    public readonly bad = false,
     private parent: Scope = null,
+    public readonly shared = false,
   ) { }
 
   $const(varName: string, value: any) {
@@ -69,8 +69,8 @@ export class Scope implements IScope {
   }
 
   $find(varName: string): null | IVariable {
-    if (this.variables.hasOwnProperty(varName)) {
-      return this.variables[varName];
+    if (Reflect.has(this.variables, varName)) {
+      return Reflect.get(this.variables, varName);
     }
     if (this.parent) {
       return this.parent.$find(varName);
@@ -80,7 +80,7 @@ export class Scope implements IScope {
 }
 
 // 默认全局对象
-const globalApis: { [key: string]: any } = {
+const defaultApis: EmptyObj = {
   console,
 
   setTimeout,
@@ -121,13 +121,19 @@ const globalApis: { [key: string]: any } = {
   Promise
 }
 
-export const createGlobalScope = () => {
+export const createGlobalScope = (injectorApis: EmptyObj = Object.create(null)) => {
   const scope = new Scope('block');
+  const apis = { ...defaultApis, ...injectorApis };
 
-  Object.keys(globalApis).forEach(apiName => {
-    scope.$const(apiName, globalApis[apiName]);
+  Object.keys(apis).forEach(apiName => {
+    scope.$const(apiName, apis[apiName]);
   });
 
+  const $exports = Object.create(null);
+  const $module = { 'exports': $exports };
+  scope.$const('module', $module);
+  scope.$const('exports', $exports);
   scope.$const('this', scope.variables);
+
   return scope;
 }

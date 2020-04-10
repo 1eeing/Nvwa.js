@@ -2,15 +2,25 @@
   "name": "nvwa",
   "version": "0.0.1",
   "description": "A javascript interpreter.",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --require ts-node/register",
+    "build": "rm -rf lib && npx tsc"
   },
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "javascript-interpreter",
+    "javascript interpreter",
+    "js-interpreter",
+    "js interpreter"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/1eeing/Nvwa.js.git"
   },
-  "author": "",
+  "author": "1eeing <372711472@qq.com>",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/1eeing/Nvwa.js/issues"
@@ -21,6 +31,8 @@
     "@babel/types": "^7.9.0"
   },
   "devDependencies": {
-    "mocha": "^7.1.1"
+    "mocha": "^7.1.1",
+    "ts-node": "^8.8.2",
+    "typescript": "^3.8.3"
   }
 }
