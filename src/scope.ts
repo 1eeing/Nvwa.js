@@ -123,13 +123,22 @@ const defaultApis: EmptyObj = {
 
 const proxyThis = (target: any) => {
   return new Proxy(target, {
-    set(target, key, value) {
-      return target[key].$set(value);
+    set(t, key, value) {
+      const v = t[key];
+      if (v) {
+        return v.$set(value);
+      }
+      t[key] = new Variable('let', value);
+      return true;
     },
 
-    get(target, key) {
-      return target[key].$get();
-    }
+    get(t, key) {
+      const v = t[key];
+      if (v) {
+        return v.$get();
+      }
+      return void 0;
+    },
   })
 }
 

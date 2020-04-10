@@ -6,8 +6,10 @@ describe('test BinaryExpression', function () {
   it('should be equal', function () {
     const res = run(`
       const a = 'global A';
-      const add = () => {
-        console.log(this.a);
+      const add = function() {
+        this.c = 1;
+        console.log(this.a, this.c);
+        console.log(this);
         return 1 + 1
       };
       const b = {
