@@ -256,6 +256,23 @@ const evaluateMap: EvaluateMap = {
     }
   },
 
+  ArrowFunctionExpression(node: t.ArrowFunctionExpression, scope) {
+    return (...args) => {
+      const funcScope = new Scope('function', scope, true);
+      node.params.forEach((param: t.Identifier, idx) => {
+        const { name: paramName } = param;
+        funcScope.$let(paramName, args[idx]);
+      });
+      const _this = funcScope.$find('this');
+      funcScope.$const('this', _this ? _this.$get() : null);
+      funcScope.$const('arguments', args);
+      const res = evaluate(node.body, funcScope);
+      if (res === RETURN) {
+        return res.result;
+      }
+    }
+  },
+
   UnaryExpression(node: t.UnaryExpression, scope) {
     const expressionMap = {
       '~': () => ~evaluate(node.argument, scope),
