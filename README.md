@@ -10,7 +10,7 @@ npm install nvwajs --save
 
 ## 如何使用
 ```js
-import createContext from 'nvwa';
+import createContext from 'nvwajs';
 
 const run = createContext();
 
