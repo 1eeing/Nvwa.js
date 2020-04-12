@@ -54,9 +54,10 @@ export class Scope implements IScope {
     const variable = scope.variables[varName];
     if (!variable) {
       scope.variables[varName] = new Variable('var', value);
-      return true;
+    } else {
+      scope.variables[varName] = variable.$set(value);
     }
-    return false;
+    return true
   }
 
   $define(kind: Kind, varName: string, value: any): boolean {
