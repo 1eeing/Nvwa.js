@@ -77,7 +77,7 @@ const evaluateMap: EvaluateMap = {
       return evaluate(node.consequent, scope);
     }
 
-    if (evaluate(node.alternate, scope)) {
+    if (node.alternate) {
       const ifScope = new Scope('block', scope, true);
       return evaluate(node.alternate, ifScope)
     }
@@ -290,13 +290,13 @@ const evaluateMap: EvaluateMap = {
       },
       'delete': () => {
         if (node.argument.type === 'MemberExpression') {
-          const { object, property } = node.argument;
+          const { object, property, computed } = node.argument;
           const obj = evaluate(object, scope);
           let prop;
-          if (property.type === 'Identifier') {
-            prop = property.name;
-          } else {
+          if (computed) {
             prop = evaluate(property, scope);
+          } else {
+            prop = property.name;
           }
           return delete obj[prop];
         } else {
@@ -316,10 +316,10 @@ const evaluateMap: EvaluateMap = {
     } else if (argument.type === 'MemberExpression') {
       const obj = evaluate(argument.object, scope);
       let prop;
-      if (argument.property.type === 'Identifier') {
-        prop = argument.property.name;
-      } else {
+      if (argument.computed) {
         prop = evaluate(argument.property, scope);
+      } else {
+        prop = argument.property.name;
       }
       $var = {
         $set(value: any) {
@@ -386,10 +386,10 @@ const evaluateMap: EvaluateMap = {
     } else if (left.type === 'MemberExpression') {
       const obj = evaluate(left.object, scope);
       let prop;
-      if (left.property.type === 'Identifier') {
-        prop = left.property.name;
-      } else {
+      if (left.computed) {
         prop = evaluate(left.property, scope);
+      } else {
+        prop = left.property.name;
       }
       $var = {
         $set(value: any) {
@@ -432,13 +432,13 @@ const evaluateMap: EvaluateMap = {
   },
 
   MemberExpression(node: t.MemberExpression, scope) {
-    const { object, property } = node;
+    const { object, property, computed } = node;
     const obj = evaluate(object, scope);
     let prop;
-    if (property.type === 'Identifier') {
-      prop = property.name;
-    } else {
+    if (computed) {
       prop = evaluate(property, scope);
+    } else {
+      prop = property.name;
     }
     return obj[prop];
   },

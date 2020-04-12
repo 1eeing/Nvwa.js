@@ -3,9 +3,10 @@
   "version": "0.0.1",
   "description": "A javascript interpreter.",
   "main": "lib/index.js",
+  "module": "lib/index.js",
   "scripts": {
     "test": "mocha --require ts-node/register",
-    "build": "rm -rf lib && npx tsc"
+    "build": "rm -rf lib && webpack --config webpack.config.js"
   },
   "files": [
     "lib"
@@ -34,8 +35,11 @@
     "@babel/types": "^7.9.0"
   },
   "devDependencies": {
+    "awesome-typescript-loader": "^5.2.1",
     "mocha": "^7.1.1",
     "ts-node": "^8.8.2",
-    "typescript": "^3.8.3"
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11"
   }
 }

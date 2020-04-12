@@ -5,20 +5,22 @@ const run = createContext();
 describe('test BinaryExpression', function () {
   it('should be equal', function () {
     const res = run(`
-      const a = 'global A';
-      const add = function() {
+      let a = 'global A';
+      if(false){
+        a = 'xixi';
+      }
+      const add = () => {
         this.c = 1;
         console.log(this.a, this.c);
-        console.log(this);
         return 1 + 1
       };
       const b = {
         a: 'hello',
         add: add
       }
-      exports.res = b.add();
+      const varAdd = 'add';
+      exports.res = b[varAdd]();
     `);
-    // console.log(res);
     assert.equal(2, res.res);
   });
 })
