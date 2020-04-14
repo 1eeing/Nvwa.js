@@ -20,3 +20,8 @@ const run = createContext();
 
 run(`console.log('hello world')`);
 ```
+
+
+## TODO
+- [ ] 补充单测，完成自举
+- [ ] 补充语法

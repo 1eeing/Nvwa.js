@@ -147,7 +147,7 @@ export const createGlobalScope = (injectorApis: EmptyObj = Object.create(null)) 
   const scope = new Scope('block');
   const apis = { ...defaultApis, ...injectorApis };
 
-  Object.keys(apis).forEach(apiName => {
+  Object.getOwnPropertyNames(apis).forEach(apiName => {
     scope.$const(apiName, apis[apiName]);
   });
 
