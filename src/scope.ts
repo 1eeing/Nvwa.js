@@ -20,6 +20,7 @@ export class Variable implements IVariable {
 }
 
 export class Scope implements IScope {
+  // TODO 实现变量提升以及临时性死区
   public readonly variables: EmptyObj = Object.create(null);
 
   constructor(
